@@ -1,16 +1,16 @@
 version: "3.9"
 
 services:
-  imageprocessing:
-    build:
-      dockerfile: Dockerfile
-    ports:
-      - "8501:8501"
-    environment:
-      STREAMLIT_SERVER_HEADLESS: "true"
-      STREAMLIT_SERVER_PORT: "8501"
-      STREAMLIT_SERVER_ENABLE_CORS: "false"
-      STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
+  # imageprocessing:
+  #   build:
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8501:8501"
+  #   environment:
+  #     STREAMLIT_SERVER_HEADLESS: "true"
+  #     STREAMLIT_SERVER_PORT: "8501"
+  #     STREAMLIT_SERVER_ENABLE_CORS: "false"
+  #     STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
   mongo:
     image: mongo:latest      # Use latest MongoDB image
     container_name: mongo_db
@@ -19,6 +19,20 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+  backend:
+    build:
+      context: ./backend  # <- points to your backend folder
+      dockerfile: Dockerfile.backend
+    container_name: django_backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_DEBUG: "True"
+      MONGO_URI: "mongodb://mongo:27017"
+      REDIS_URL: "redis://redis:6379"
 
 volumes:
   mongo_data:
