@@ -11,3 +11,14 @@ services:
       STREAMLIT_SERVER_PORT: "8501"
       STREAMLIT_SERVER_ENABLE_CORS: "false"
       STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
+  mongo:
+    image: mongo:latest      # Use latest MongoDB image
+    container_name: mongo_db
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
