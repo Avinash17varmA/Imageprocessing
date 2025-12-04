@@ -1,16 +1,16 @@
 version: "3.9"
 
 services:
-  # imageprocessing:
-  #   build:
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8501:8501"
-  #   environment:
-  #     STREAMLIT_SERVER_HEADLESS: "true"
-  #     STREAMLIT_SERVER_PORT: "8501"
-  #     STREAMLIT_SERVER_ENABLE_CORS: "false"
-  #     STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
+  imageprocessing:
+    build:
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      STREAMLIT_SERVER_HEADLESS: "true"
+      STREAMLIT_SERVER_PORT: "8501"
+      STREAMLIT_SERVER_ENABLE_CORS: "false"
+      STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
   mongo:
     image: mongo:latest      # Use latest MongoDB image
     container_name: mongo_db
