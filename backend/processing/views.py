@@ -6,6 +6,10 @@ from django.views.decorators.csrf import csrf_exempt
 from PIL import Image
 import cv2
 import matplotlib.pyplot as plt
+from django.http import JsonResponse
+from .models import *
+from django.core.files.base import ContentFile
+
 
 def fig_to_bytes(fig):
     """Convert matplotlib figure to PNG bytes."""
@@ -34,6 +38,15 @@ def upload_image(request):
         image_bytes = request.body
 
     pil_img = Image.open(io.BytesIO(image_bytes))
+
+    # --- Save raw image in MongoDB ---
+    img_bytes = io.BytesIO()
+    pil_img.save(img_bytes, format='PNG')
+    img_bytes.seek(0)
+
+    rawimage = RawImages(name="uploaded_image")
+    rawimage.image.put(img_bytes, content_type="image/png")
+    rawimage.save()
     arr = np.array(pil_img)
 
     # ------ GRAYSCALE ------
@@ -82,4 +95,32 @@ def upload_image(request):
     zip_buffer.seek(0)
     response = HttpResponse(zip_buffer, content_type="application/zip")
     response["Content-Disposition"] = "attachment; filename=plots.zip"
+    return response
+
+def test(request):
+    book = Book(title="Django with MongoDB", author="Avinash")
+    book.save()
+    return JsonResponse({"message": "Hello World from Django backend!"})
+
+def list_raw_images(request):
+    """
+    Reads all images from RawImages (MongoDB GridFS) 
+    and returns a ZIP containing all images.
+    """
+    images = RawImages.objects()
+    
+    # Create an in-memory zip
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        for img in images:
+            if img.image:  # make sure image exists
+                # Read image bytes
+                file_data = img.image.read()
+                # Use filename or fallback to id.png
+                filename = img.image.filename or f"{img.id}.png"
+                zip_file.writestr(filename, file_data)
+    
+    zip_buffer.seek(0)
+    response = HttpResponse(zip_buffer, content_type="application/zip")
+    response["Content-Disposition"] = 'attachment; filename="all_raw_images.zip"'
     return response

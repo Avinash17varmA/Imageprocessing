@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import mongoengine
 
 # -----------------------------
 # BASE DIRECTORY
@@ -69,21 +70,12 @@ WSGI_APPLICATION = 'imageapp.wsgi.application'
 # -----------------------------
 # DATABASE (MongoDB via Djongo or PyMongo)
 # -----------------------------
-# Option 1: Using PyMongo (recommended for DRF API)
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongo:27017")
-# Use PyMongo in your views for connecting to MongoDB
 
-# Option 2: Djongo (if you want Django ORM with MongoDB)
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'djongo',
-#         'NAME': 'imageprocessing_db',
-#         'ENFORCE_SCHEMA': False,
-#         'CLIENT': {
-#             'host': MONGO_URI,
-#         }
-#     }
-# }
+mongoengine.connect(
+    db='imageprocessing',
+    host='mongo',
+    port=27017
+)
 
 # -----------------------------
 # PASSWORD VALIDATION
