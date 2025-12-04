@@ -8,99 +8,56 @@ import cv2
 import matplotlib.pyplot as plt
 from django.http import JsonResponse
 from .models import *
-from django.core.files.base import ContentFile
-
-
-def fig_to_bytes(fig):
-    """Convert matplotlib figure to PNG bytes."""
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches='tight')
-    plt.close(fig)
-    buf.seek(0)
-    return buf.getvalue()
-
-def img_to_bytes(img_array):
-    """Convert numpy image to PNG bytes."""
-    buf = io.BytesIO()
-    Image.fromarray(img_array).save(buf, format="PNG")
-    buf.seek(0)
-    return buf.getvalue()
+from .functions import *
 
 @csrf_exempt
 def upload_image(request):
-    if request.method != "POST":
-        return HttpResponse("POST required", status=405)
+    try:
+        if request.method != "POST":
+            return JsonResponse({"error": "POST method required"}, status=405)
 
-    # Read image
-    if request.FILES:
-        image_bytes = request.FILES["file"].read()
-    else:
-        image_bytes = request.body
+        # --- Read image ---
+        if request.FILES and "file" in request.FILES:
+            image_bytes = request.FILES["file"].read()
+        else:
+            image_bytes = request.body
+        if not image_bytes:
+            return JsonResponse({"error": "No image data received"}, status=400)
 
-    pil_img = Image.open(io.BytesIO(image_bytes))
+        pil_img = Image.open(io.BytesIO(image_bytes))
+        img_hash = calculate_md5(image_bytes)
 
-    # --- Save raw image in MongoDB ---
-    img_bytes = io.BytesIO()
-    pil_img.save(img_bytes, format='PNG')
-    img_bytes.seek(0)
+        # --- Save raw image if new ---
+        save_image_if_new(pil_img, img_hash)
+        raw_image_obj = RawImages.objects(md5=img_hash).first()
 
-    rawimage = RawImages(name="uploaded_image")
-    rawimage.image.put(img_bytes, content_type="image/png")
-    rawimage.save()
-    arr = np.array(pil_img)
+        # --- Check if processed images already exist ---
+        plots = get_processed_images_from_db(raw_image_obj)
+        if plots is None:
+            # --- If not, generate and save processed images ---
+            plots = generate_plots_bytes(pil_img)
+            processed = ProcessedImages(
+                name="processed_" + (raw_image_obj.name or "image"),
+                original_image=raw_image_obj
+            )
+            for key, value in plots.items():
+                getattr(processed, key).put(io.BytesIO(value), content_type="image/png")
+            processed.save()
 
-    # ------ GRAYSCALE ------
-    gray = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+        # --- Return ZIP of plots ---
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+            for key, value in plots.items():
+                zip_file.writestr(f"{key}.png", value)
+        zip_buffer.seek(0)
 
-    # ------ SCATTER ------
-    h, w = gray.shape
-    small = cv2.resize(gray, (int(w * 0.5), int(h * 0.5)))
-    xs, ys, intensity = [], [], []
-    for y in range(small.shape[0]):
-        for x in range(small.shape[1]):
-            if small[y, x] != 255:
-                xs.append(x)
-                ys.append(y)
-                intensity.append(small[y, x])
-    fig_scatter, ax1 = plt.subplots()
-    sc = ax1.scatter(xs, ys, c=intensity, cmap="gray", s=0.5)
-    plt.colorbar(sc)
+        response = HttpResponse(zip_buffer, content_type="application/zip")
+        response["Content-Disposition"] = 'attachment; filename="plots.zip"'
+        return response
 
-    # ------ HISTOGRAM ------
-    x_hist = np.sum(gray, axis=0)
-    y_hist = np.sum(gray, axis=1)
-    fig_hist, (hx, hy) = plt.subplots(1, 2, figsize=(8,4))
-    hx.plot(x_hist)
-    hy.plot(y_hist)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
-    # ------ BAR GRAPH ------
-    fig_bar, (bx, by) = plt.subplots(1, 2, figsize=(8,4))
-    bx.bar(range(len(x_hist)), x_hist)
-    by.bar(range(len(y_hist)), y_hist)
-
-    # ------ LINE GRAPH ------
-    fig_line, (lx, ly) = plt.subplots(1, 2, figsize=(8,4))
-    lx.plot(x_hist)
-    ly.plot(y_hist)
-
-    # ------ CREATE ZIP ------
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-        zip_file.writestr("gray.png", img_to_bytes(gray))
-        zip_file.writestr("scatter.png", fig_to_bytes(fig_scatter))
-        zip_file.writestr("histogram.png", fig_to_bytes(fig_hist))
-        zip_file.writestr("bar.png", fig_to_bytes(fig_bar))
-        zip_file.writestr("line.png", fig_to_bytes(fig_line))
-
-    zip_buffer.seek(0)
-    response = HttpResponse(zip_buffer, content_type="application/zip")
-    response["Content-Disposition"] = "attachment; filename=plots.zip"
-    return response
-
-def test(request):
-    book = Book(title="Django with MongoDB", author="Avinash")
-    book.save()
-    return JsonResponse({"message": "Hello World from Django backend!"})
 
 def list_raw_images(request):
     """
