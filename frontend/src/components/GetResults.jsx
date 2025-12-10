@@ -2,7 +2,7 @@ import API from "../api/client";
 import { useState } from "react";
 import JSZip from "jszip";
 
-export default function GetResults() {
+export default function GetResults(props) {
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
 
@@ -41,25 +41,46 @@ export default function GetResults() {
   };
 
   return (
-    <div className="results-box">
-      <h2>Existing Data</h2>
+    <div className="card">
+      <div className="flex" style={{ justifyContent: "space-between", marginBottom: "1.5rem" }}>
+        <h2 style={{ margin: 0 }}>Processing History</h2>
+        <button onClick={fetchResults} disabled={loading} style={{ minWidth: "120px" }}>
+          {loading ? "Fetching..." : "Refresh History"}
+        </button>
+      </div>
 
-      <button onClick={fetchResults} disabled={loading}>
-        {loading ? "Fetching..." : "History"}
-      </button>
-
-      <div className="image-gallery" style={{ marginTop: "20px" }}>
-        {images.length > 0 &&
+      <div className="grid">
+        {images.length > 0 ? (
           images.map((img, idx) => (
-            <div key={idx} style={{ marginBottom: "10px" }}>
-              <p>{img.name}</p>
+            <div
+              key={idx}
+              style={{
+                backgroundColor: "var(--bg-input)",
+                padding: "10px",
+                borderRadius: "var(--radius)",
+                border: "1px solid var(--border)",
+                transition: "transform 0.2s",
+                cursor: "zoom-in"
+              }}
+              onClick={() => props.onImageClick && props.onImageClick({ src: img.url, alt: img.name })}
+              onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-4px)"}
+              onMouseOut={(e) => e.currentTarget.style.transform = "none"}
+            >
+              <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {img.name}
+              </div>
               <img
                 src={img.url}
                 alt={img.name}
-                style={{ width: "200px", borderRadius: "8px" }}
+                style={{ width: "100%", borderRadius: "8px", display: "block", aspectRatio: "16/9", objectFit: "cover" }}
               />
             </div>
-          ))}
+          ))
+        ) : (
+          <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+            {!loading && "No history available. Upload an image to start."}
+          </div>
+        )}
       </div>
     </div>
   );

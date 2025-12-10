@@ -47,7 +47,8 @@ def generate_plots_bytes(pil_img):
         return buf.getvalue()
 
     arr = np.array(pil_img)
-    gray = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+    # Fix: PIL stores images as RGB, so convert RGB to GRAY
+    gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
     # Scatter plot
     h, w = gray.shape
@@ -63,22 +64,31 @@ def generate_plots_bytes(pil_img):
     sc = ax1.scatter(xs, ys, c=intensity, cmap="gray", s=0.5)
     plt.colorbar(sc, ax=ax1)
 
-    # Histogram
-    x_hist = np.sum(gray, axis=0)
-    y_hist = np.sum(gray, axis=1)
-    fig_hist, (hx, hy) = plt.subplots(1, 2, figsize=(8,4))
-    hx.plot(x_hist)
-    hy.plot(y_hist)
+    # Histogram (Standard Intensity Histogram)
+    fig_hist, ax_hist = plt.subplots(figsize=(8, 4))
+    ax_hist.hist(gray.ravel(), 256, [0, 256], color='black', alpha=0.7)
+    ax_hist.set_title('Pixel Intensity Histogram')
+    ax_hist.set_xlabel('Pixel Value')
+    ax_hist.set_ylabel('Frequency')
+    ax_hist.grid(axis='y', alpha=0.5)
 
-    # Bar graph
+    # Projections (Sum of pixel values along axes)
+    x_proj = np.sum(gray, axis=0)
+    y_proj = np.sum(gray, axis=1)
+
+    # Bar graph (using projections)
     fig_bar, (bx, by) = plt.subplots(1, 2, figsize=(8,4))
-    bx.bar(range(len(x_hist)), x_hist)
-    by.bar(range(len(y_hist)), y_hist)
+    bx.bar(range(len(x_proj)), x_proj, color='gray')
+    bx.set_title('X-Axis Projection')
+    by.bar(range(len(y_proj)), y_proj, color='gray')
+    by.set_title('Y-Axis Projection')
 
-    # Line graph
+    # Line graph (using projections)
     fig_line, (lx, ly) = plt.subplots(1, 2, figsize=(8,4))
-    lx.plot(x_hist)
-    ly.plot(y_hist)
+    lx.plot(x_proj, color='black')
+    lx.set_title('X-Axis Projection')
+    ly.plot(y_proj, color='black')
+    ly.set_title('Y-Axis Projection')
 
     return {
         "grayscale": img_to_bytes(gray),

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import JSZip from "jszip";
 
-function UploadForm() {
+function UploadForm(props) {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("");
   const [images, setImages] = useState([]);
@@ -57,47 +57,114 @@ function UploadForm() {
   };
 
   return (
-    <div style={{ padding: "30px" }}>
-      <h1>Upload Image for Processing</h1>
+    <div className="card">
+      <h2 className="mb-4">Upload Image</h2>
 
-      <input type="file" accept="image/*" onChange={handleFileChange} />
-      <br /> <br />
-
-      <button
-        onClick={handleUpload}
-        style={{ padding: "10px 20px", cursor: "pointer" }}
-      >
-        Upload
-      </button>
-
-      <p style={{ marginTop: "10px" }}>{status}</p>
-
-      <div
-        style={{
-          marginTop: "20px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-          gap: "20px",
-        }}
-      >
-        {images.map((img, index) => (
-          <div
-            key={index}
+      <div className="flex" style={{ flexDirection: "column", alignItems: "start", gap: "1rem" }}>
+        <div style={{ width: "100%" }}>
+          <label
+            htmlFor="file-upload"
             style={{
-              border: "1px solid #ddd",
-              padding: "10px",
-              borderRadius: "8px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "2px dashed var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "3rem",
+              textAlign: "center",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              transition: "all 0.2s",
+              backgroundColor: "rgba(255, 255, 255, 0.02)"
             }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = "var(--primary)";
+              e.currentTarget.style.backgroundColor = "rgba(139, 92, 246, 0.1)";
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = "var(--border)";
+              e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.02)";
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = "var(--border)";
+              e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.02)";
+              if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                setFile(e.dataTransfer.files[0]);
+                setStatus("");
+                setImages([]);
+              }
+            }}
+            onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--primary)"}
+            onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--border)"}
           >
-            <h4 style={{ fontSize: "14px" }}>{img.name}</h4>
-            <img
-              src={img.data}
-              alt={img.name}
-              style={{ width: "100%", borderRadius: "6px" }}
-            />
-          </div>
-        ))}
+            <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>📂</div>
+            {file ? (
+              <span style={{ color: "var(--text-main)", fontWeight: "500" }}>{file.name}</span>
+            ) : (
+              <span>Click to select or drag & drop an image</span>
+            )}
+          </label>
+          <input
+            id="file-upload"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
+        </div>
+
+        <div className="flex" style={{ width: "100%", justifyContent: "space-between" }}>
+          <button onClick={handleUpload} disabled={!file || status === "Uploading..."}>
+            {status === "Uploading..." ? "Uploading..." : "Process Image"}
+          </button>
+
+          {status && (
+            <span style={{
+              color: status.includes("Error") ? "#ff6b6b" : "var(--primary)",
+              fontWeight: "500"
+            }}>
+              {status}
+            </span>
+          )}
+        </div>
       </div>
+
+      {images.length > 0 && (
+        <div className="mt-4">
+          <h3 className="mb-4">Processed Results</h3>
+          <div className="grid">
+            {images.map((img, index) => (
+              <div
+                key={index}
+                style={{
+                  backgroundColor: "var(--bg-input)",
+                  padding: "10px",
+                  borderRadius: "var(--radius)",
+                  border: "1px solid var(--border)",
+                  cursor: "zoom-in",
+                  transition: "transform 0.2s"
+                }}
+                onClick={() => props.onImageClick && props.onImageClick({ src: img.data, alt: img.name })}
+                onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-4px)"}
+                onMouseOut={(e) => e.currentTarget.style.transform = "none"}
+              >
+                <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {img.name}
+                </div>
+                <img
+                  src={img.data}
+                  alt={img.name}
+                  style={{ width: "100%", borderRadius: "8px", display: "block" }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
