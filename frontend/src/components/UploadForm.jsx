@@ -1,16 +1,20 @@
 import React, { useState } from "react";
 import axios from "axios";
-import JSZip from "jszip";
+// JSZip import removed as it is now handled in helper
+import ProcessedResultsModal from "./ProcessedResultsModal";
+import { processZipResponse } from "../api/client";
 
 function UploadForm(props) {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("");
   const [images, setImages] = useState([]);
+  const [showModal, setShowModal] = useState(false);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setStatus("");
     setImages([]);
+    setShowModal(false);
   };
 
   const handleUpload = async () => {
@@ -35,20 +39,11 @@ function UploadForm(props) {
 
       setStatus("Processing ZIP...");
 
-      const zip = await JSZip.loadAsync(response.data);
-      const extractedImages = [];
-
-      // Loop through each file in the ZIP
-      for (const filename of Object.keys(zip.files)) {
-        const fileData = await zip.files[filename].async("base64");
-        extractedImages.push({
-          name: filename,
-          data: `data:image/png;base64,${fileData}`,
-        });
-      }
+      const extractedImages = await processZipResponse(response.data);
 
       setImages(extractedImages);
       setStatus("Completed!");
+      setShowModal(true);
 
     } catch (error) {
       console.error(error);
@@ -96,6 +91,7 @@ function UploadForm(props) {
                 setFile(e.dataTransfer.files[0]);
                 setStatus("");
                 setImages([]);
+                setShowModal(false);
               }
             }}
             onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--primary)"}
@@ -133,37 +129,11 @@ function UploadForm(props) {
         </div>
       </div>
 
-      {images.length > 0 && (
-        <div className="mt-4">
-          <h3 className="mb-4">Processed Results</h3>
-          <div className="grid">
-            {images.map((img, index) => (
-              <div
-                key={index}
-                style={{
-                  backgroundColor: "var(--bg-input)",
-                  padding: "10px",
-                  borderRadius: "var(--radius)",
-                  border: "1px solid var(--border)",
-                  cursor: "zoom-in",
-                  transition: "transform 0.2s"
-                }}
-                onClick={() => props.onImageClick && props.onImageClick({ src: img.data, alt: img.name })}
-                onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-4px)"}
-                onMouseOut={(e) => e.currentTarget.style.transform = "none"}
-              >
-                <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {img.name}
-                </div>
-                <img
-                  src={img.data}
-                  alt={img.name}
-                  style={{ width: "100%", borderRadius: "8px", display: "block" }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+      {showModal && (
+        <ProcessedResultsModal
+          images={images}
+          onClose={() => setShowModal(false)}
+        />
       )}
     </div>
   );

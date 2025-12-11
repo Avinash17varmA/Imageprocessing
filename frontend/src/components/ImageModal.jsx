@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const ImageModal = ({ image, onClose }) => {
     useEffect(() => {
@@ -11,13 +12,14 @@ const ImageModal = ({ image, onClose }) => {
 
     if (!image) return null;
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
+    return createPortal(
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 2000 }}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 <button className="modal-close" onClick={onClose}>&times;</button>
                 <img src={image.src} alt={image.alt || 'Full screen view'} />
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

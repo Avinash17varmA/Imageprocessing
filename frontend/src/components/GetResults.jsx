@@ -1,10 +1,15 @@
-import API from "../api/client";
+import API, { processZipResponse } from "../api/client";
 import { useState } from "react";
 import JSZip from "jszip";
+import ProcessedResultsModal from "./ProcessedResultsModal";
+import axios from "axios";
 
 export default function GetResults(props) {
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const [processedImages, setProcessedImages] = useState([]);
+  const [showModal, setShowModal] = useState(false);
 
   const fetchResults = async () => {
     setLoading(true);
@@ -40,6 +45,39 @@ export default function GetResults(props) {
     setLoading(false);
   };
 
+  const handleHistoryClick = async (img) => {
+    setProcessing(true);
+    try {
+      // 1. Fetch the blob from the localized URL
+      const blobResponse = await fetch(img.url);
+      const blob = await blobResponse.blob();
+      const file = new File([blob], img.name, { type: blob.type });
+
+      // 2. Prepare FormData
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // 3. Upload and process
+      const response = await axios.post(
+        "http://localhost:8000/backend/upload-image/",
+        formData,
+        { responseType: "arraybuffer" }
+      );
+
+      // 4. Unzip results using helper
+      const extractedResults = await processZipResponse(response.data);
+
+      setProcessedImages(extractedResults);
+      setShowModal(true);
+
+    } catch (error) {
+      console.error("Error processing history image:", error);
+      alert("Failed to process image");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   return (
     <div className="card">
       <div className="flex" style={{ justifyContent: "space-between", marginBottom: "1.5rem" }}>
@@ -60,9 +98,10 @@ export default function GetResults(props) {
                 borderRadius: "var(--radius)",
                 border: "1px solid var(--border)",
                 transition: "transform 0.2s",
-                cursor: "zoom-in"
+                cursor: processing ? "wait" : "pointer",
+                opacity: processing ? 0.7 : 1
               }}
-              onClick={() => props.onImageClick && props.onImageClick({ src: img.url, alt: img.name })}
+              onClick={() => !processing && handleHistoryClick(img)}
               onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-4px)"}
               onMouseOut={(e) => e.currentTarget.style.transform = "none"}
             >
@@ -82,6 +121,13 @@ export default function GetResults(props) {
           </div>
         )}
       </div>
+
+      {showModal && (
+        <ProcessedResultsModal
+          images={processedImages}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -29,10 +29,10 @@ def upload_image(request):
         # --- Open image ---
         pil_img = Image.open(io.BytesIO(image_bytes))
 
-        # --- MD5 & Save raw image if new ---
-        img_hash = calculate_md5(image_bytes)
-        save_image_if_new(pil_img, img_hash)
-        raw_image_obj = RawImages.objects(md5=img_hash).first()
+        # --- Save raw image if new ---
+        # We use the filename from the upload if available
+        name = uploaded_file.name if uploaded_file.name else "uploaded_image"
+        raw_image_obj = save_image_if_new(pil_img, name=name)
 
         # --- Check if processed images already exist ---
         plots = get_processed_images_from_db(raw_image_obj)
@@ -83,12 +83,24 @@ def list_raw_images(request):
     # Create an in-memory zip
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        used_names = set()
         for img in images:
             if img.image:  # make sure image exists
                 # Read image bytes
                 file_data = img.image.read()
-                # Use filename or fallback to id.png
-                filename = img.image.filename or f"{img.id}.png"
+                
+                # Use stored name or fallback
+                filename = img.name if img.name else (img.image.filename or f"{img.id}.png")
+                
+                # Ensure unique filename in zip
+                while filename in used_names:
+                    if '.' in filename:
+                        name_part, ext = filename.rsplit('.', 1)
+                        filename = f"{name_part}_1.{ext}"
+                    else:
+                        filename = f"{filename}_1"
+                
+                used_names.add(filename)
                 zip_file.writestr(filename, file_data)
     
     zip_buffer.seek(0)

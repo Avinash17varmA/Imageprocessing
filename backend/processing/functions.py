@@ -13,23 +13,32 @@ def calculate_md5(file_bytes):
     md5.update(file_bytes)
     return md5.hexdigest()
 
-def save_image_if_new(pil_img, img_hash, name="uploaded_image"):
+def save_image_if_new(pil_img, name="uploaded_image"):
     """
     Saves the image to MongoDB only if it does not already exist.
-    Returns True if saved, False if duplicate.
+    Calculates MD5 based on the converted PNG bytes to ensure consistency.
+    Returns the RawImages object.
     """
-    duplicate = RawImages.objects(md5=img_hash).first()
-    if duplicate:
-        return False
-
     img_bytes = io.BytesIO()
     pil_img.save(img_bytes, format='PNG')
     img_bytes.seek(0)
+    file_content = img_bytes.getvalue()
+    
+    img_hash = calculate_md5(file_content)
+
+    duplicate = RawImages.objects(md5=img_hash).first()
+    if duplicate:
+        return duplicate
+
+    # Ensure name ends with .png since we converted it
+    if not name.lower().endswith('.png'):
+        base_name = name.rsplit('.', 1)[0] if '.' in name else name
+        name = f"{base_name}.png"
 
     rawimage = RawImages(name=name, md5=img_hash)
-    rawimage.image.put(img_bytes, content_type="image/png")
+    rawimage.image.put(img_bytes, filename=name, content_type="image/png")
     rawimage.save()
-    return True
+    return rawimage
 
 def generate_plots_bytes(pil_img):
     """Generates all plots and returns a dictionary of plot bytes"""
