@@ -14,32 +14,43 @@ from .functions import *
 def upload_image(request):
     try:
         if request.method != "POST":
+            print("LOG: Request method is not POST")
             return JsonResponse({"error": "POST method required"}, status=405)
 
         # --- Read image: Only from request.FILES ---
+        print("LOG: processing upload_image request")
         if "file" not in request.FILES:
+            print("LOG: No file in request.FILES")
             return JsonResponse({"error": "No file uploaded"}, status=400)
 
         uploaded_file = request.FILES["file"]
+        print(f"LOG: Received file: {uploaded_file.name}")
         image_bytes = uploaded_file.read()
 
         if not image_bytes:
+            print("LOG: Empty file uploaded")
             return JsonResponse({"error": "Empty file uploaded"}, status=400)
 
         # --- Open image ---
+        print("LOG: Opening image with PIL")
         pil_img = Image.open(io.BytesIO(image_bytes))
 
         # --- Save raw image if new ---
         # We use the filename from the upload if available
         name = uploaded_file.name if uploaded_file.name else "uploaded_image"
+        print(f"LOG: Saving/Checking raw image: {name}")
         raw_image_obj = save_image_if_new(pil_img, name=name)
+        print(f"LOG: Raw image object ID: {raw_image_obj.id}")
 
         # --- Check if processed images already exist ---
+        print("LOG: Checking for existing processed images")
         plots = get_processed_images_from_db(raw_image_obj)
 
         if plots is None:
             # generate new processed images
+            print("LOG: No existing plots found. Generating new plots...")
             plots = generate_plots_bytes(pil_img)
+            print("LOG: Plots generated. Saving to DB...")
 
             processed = ProcessedImages(
                 name="processed_" + (raw_image_obj.name or "image"),
@@ -52,14 +63,19 @@ def upload_image(request):
                     content_type="image/png"
                 )
             processed.save()
+            print("LOG: Processed images saved to DB")
+        else:
+            print("LOG: Found existing plots in DB. Using them.")
 
         # --- Create ZIP ---
+        print("LOG: Creating ZIP file response")
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w") as zip_file:
             for key, value in plots.items():
                 zip_file.writestr(f"{key}.png", value)
 
         zip_buffer.seek(0)
+        print("LOG: ZIP ready. Sending response.")
 
         return HttpResponse(
             zip_buffer,
