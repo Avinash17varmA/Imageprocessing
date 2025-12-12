@@ -31,41 +31,64 @@ def upload_image(request):
             print("LOG: Empty file uploaded")
             return JsonResponse({"error": "Empty file uploaded"}, status=400)
 
-        # --- Open image ---
-        print("LOG: Opening image with PIL")
+        # --- Calculate Hash for Cache Key ---
         pil_img = Image.open(io.BytesIO(image_bytes))
 
-        # --- Save raw image if new ---
-        # We use the filename from the upload if available
-        name = uploaded_file.name if uploaded_file.name else "uploaded_image"
-        print(f"LOG: Saving/Checking raw image: {name}")
-        raw_image_obj = save_image_if_new(pil_img, name=name)
-        print(f"LOG: Raw image object ID: {raw_image_obj.id}")
+        # We can use the same hash calculation as save_image_if_new logic or re-do it here.
+        # Let's trust functions.calculate_md5
+        img_temp_bytes = io.BytesIO()
+        pil_img.save(img_temp_bytes, format='PNG')
+        img_content_for_hash = img_temp_bytes.getvalue()
+        img_hash = calculate_md5(img_content_for_hash)
+        
+        cache_key = f"processed_plots_{img_hash}"
+        print(f"LOG: Checking Redis for key: {cache_key}")
+        
+        from django.core.cache import cache
+        cached_plots = cache.get(cache_key)
 
-        # --- Check if processed images already exist ---
-        print("LOG: Checking for existing processed images")
-        plots = get_processed_images_from_db(raw_image_obj)
-
-        if plots is None:
-            # generate new processed images
-            print("LOG: No existing plots found. Generating new plots...")
-            plots = generate_plots_bytes(pil_img)
-            print("LOG: Plots generated. Saving to DB...")
-
-            processed = ProcessedImages(
-                name="processed_" + (raw_image_obj.name or "image"),
-                original_image=raw_image_obj
-            )
-
-            for key, value in plots.items():
-                getattr(processed, key).put(
-                    io.BytesIO(value),
-                    content_type="image/png"
-                )
-            processed.save()
-            print("LOG: Processed images saved to DB")
+        plots = None
+        if cached_plots:
+            print("LOG: Valid cache entry found in Redis. Using it.")
+            plots = cached_plots
         else:
-            print("LOG: Found existing plots in DB. Using them.")
+            print("LOG: No cache entry in Redis.")
+
+            # --- Save raw image if new (DB logic) ---
+            # We use the filename from the upload if available
+            name = uploaded_file.name if uploaded_file.name else "uploaded_image"
+            print(f"LOG: Saving/Checking raw image: {name}")
+            raw_image_obj = save_image_if_new(pil_img, name=name)
+            print(f"LOG: Raw image object ID: {raw_image_obj.id}")
+            
+            # --- Check DB if not in Cache ---
+            print("LOG: Checking for existing processed images in DB")
+            plots = get_processed_images_from_db(raw_image_obj)
+
+            if plots is None:
+                # generate new processed images
+                print("LOG: No existing plots found. Generating new plots...")
+                plots = generate_plots_bytes(pil_img)
+                print("LOG: Plots generated. Saving to DB...")
+
+                processed = ProcessedImages(
+                    name="processed_" + (raw_image_obj.name or "image"),
+                    original_image=raw_image_obj
+                )
+
+                for key, value in plots.items():
+                    getattr(processed, key).put(
+                        io.BytesIO(value),
+                        content_type="image/png"
+                    )
+                processed.save()
+                print("LOG: Processed images saved to DB")
+            else:
+                print("LOG: Found existing plots in DB. Using them.")
+
+            # --- Save to Redis ---
+            print(f"LOG: Saving plots to Redis with key: {cache_key}")
+            cache.set(cache_key, plots, timeout=60 * 5) # Cache for 5 mins
 
         # --- Create ZIP ---
         print("LOG: Creating ZIP file response")
@@ -91,35 +114,50 @@ def upload_image(request):
 
 def list_raw_images(request):
     """
-    Reads all images from RawImages (MongoDB GridFS) 
+    Reads all images from RawImages (MongoDB GridFS)
     and returns a ZIP containing all images.
     """
-    images = RawImages.objects()
+    from django.core.cache import cache
+    cache_key = "all_raw_images_zip"
     
-    # Create an in-memory zip
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-        used_names = set()
-        for img in images:
-            if img.image:  # make sure image exists
-                # Read image bytes
-                file_data = img.image.read()
-                
-                # Use stored name or fallback
-                filename = img.name if img.name else (img.image.filename or f"{img.id}.png")
-                
-                # Ensure unique filename in zip
-                while filename in used_names:
-                    if '.' in filename:
-                        name_part, ext = filename.rsplit('.', 1)
-                        filename = f"{name_part}_1.{ext}"
-                    else:
-                        filename = f"{filename}_1"
-                
-                used_names.add(filename)
-                zip_file.writestr(filename, file_data)
-    
-    zip_buffer.seek(0)
-    response = HttpResponse(zip_buffer, content_type="application/zip")
+    print(f"LOG: Checking Redis for key: {cache_key}")
+    zip_bytes = cache.get(cache_key)
+
+    if zip_bytes:
+        print("LOG: Valid cache entry found for raw images list. Using it.")
+    else:
+        print("LOG: No cache entry for raw images list. Generating from DB...")
+        images = RawImages.objects()
+        
+        # Create an in-memory zip
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+            used_names = set()
+            for img in images:
+                if img.image:  # make sure image exists
+                    # Read image bytes
+                    file_data = img.image.read()
+                    
+                    # Use stored name or fallback
+                    filename = img.name if img.name else (img.image.filename or f"{img.id}.png")
+                    
+                    # Ensure unique filename in zip
+                    while filename in used_names:
+                        if '.' in filename:
+                            name_part, ext = filename.rsplit('.', 1)
+                            filename = f"{name_part}_1.{ext}"
+                        else:
+                            filename = f"{filename}_1"
+                    
+                    used_names.add(filename)
+                    zip_file.writestr(filename, file_data)
+        
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+        
+        print(f"LOG: Saving raw images list to Redis with key: {cache_key}")
+        cache.set(cache_key, zip_bytes, timeout=60 * 5)
+
+    response = HttpResponse(zip_bytes, content_type="application/zip")
     response["Content-Disposition"] = 'attachment; filename="all_raw_images.zip"'
     return response

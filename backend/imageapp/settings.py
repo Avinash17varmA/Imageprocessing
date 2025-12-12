@@ -131,7 +131,15 @@ CORS_ALLOW_ALL_ORIGINS = True  # For dev only
 # For production: CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
 
 # -----------------------------
-# REDIS SETTINGS (optional caching)
+# REDIS CACHE SETTINGS
 # -----------------------------
-# REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-# Example usage: import redis; r = redis.Redis.from_url(settings.REDIS_URL)
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379") + "/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
+

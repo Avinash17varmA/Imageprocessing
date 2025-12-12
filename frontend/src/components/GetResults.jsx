@@ -10,6 +10,7 @@ export default function GetResults(props) {
   const [processing, setProcessing] = useState(false);
   const [processedImages, setProcessedImages] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [zipBlob, setZipBlob] = useState(null);
 
   const fetchResults = async () => {
     setLoading(true);
@@ -65,6 +66,8 @@ export default function GetResults(props) {
       );
 
       // 4. Unzip results using helper
+      const resultZipBlob = new Blob([response.data], { type: "application/zip" });
+      setZipBlob(resultZipBlob);
       const extractedResults = await processZipResponse(response.data);
 
       setProcessedImages(extractedResults);
@@ -125,6 +128,7 @@ export default function GetResults(props) {
       {showModal && (
         <ProcessedResultsModal
           images={processedImages}
+          zipBlob={zipBlob}
           onClose={() => setShowModal(false)}
         />
       )}

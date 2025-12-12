@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 // JSZip import removed as it is now handled in helper
 import ProcessedResultsModal from "./ProcessedResultsModal";
+import CameraModal from "./CameraModal";
 import { processZipResponse } from "../api/client";
 
 function UploadForm(props) {
@@ -9,12 +10,24 @@ function UploadForm(props) {
   const [status, setStatus] = useState("");
   const [images, setImages] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [zipBlob, setZipBlob] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setStatus("");
     setImages([]);
+    setZipBlob(null);
     setShowModal(false);
+  };
+
+  const handleCapture = (capturedFile) => {
+    setFile(capturedFile);
+    setStatus("");
+    setImages([]);
+    setZipBlob(null);
+    setShowModal(false);
+    setShowCamera(false);
   };
 
   const handleUpload = async () => {
@@ -39,6 +52,8 @@ function UploadForm(props) {
 
       setStatus("Processing ZIP...");
 
+      const blob = new Blob([response.data], { type: "application/zip" });
+      setZipBlob(blob);
       const extractedImages = await processZipResponse(response.data);
 
       setImages(extractedImages);
@@ -91,6 +106,7 @@ function UploadForm(props) {
                 setFile(e.dataTransfer.files[0]);
                 setStatus("");
                 setImages([]);
+                setZipBlob(null);
                 setShowModal(false);
               }
             }}
@@ -111,6 +127,23 @@ function UploadForm(props) {
             onChange={handleFileChange}
             style={{ display: "none" }}
           />
+
+          <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>OR</span>
+          </div>
+
+          <button
+            onClick={() => setShowCamera(true)}
+            style={{
+              width: "100%",
+              marginTop: "0.5rem",
+              backgroundColor: "var(--bg-input)",
+              border: "1px dashed var(--border)",
+              color: "var(--text-muted)"
+            }}
+          >
+            Take a Photo 📸
+          </button>
         </div>
 
         <div className="flex" style={{ width: "100%", justifyContent: "space-between" }}>
@@ -132,7 +165,15 @@ function UploadForm(props) {
       {showModal && (
         <ProcessedResultsModal
           images={images}
+          zipBlob={zipBlob}
           onClose={() => setShowModal(false)}
+        />
+      )}
+
+      {showCamera && (
+        <CameraModal
+          onCapture={handleCapture}
+          onClose={() => setShowCamera(false)}
         />
       )}
     </div>

@@ -2,8 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ImageModal from './ImageModal';
 
-const ProcessedResultsModal = ({ images, onClose }) => {
+const ProcessedResultsModal = ({ images, zipBlob, onClose }) => {
     const [selectedFullScreenImage, setSelectedFullScreenImage] = useState(null);
+
+    const handleDownloadZip = () => {
+        if (!zipBlob) return;
+        const url = window.URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'processed_results.zip');
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+    };
 
     useEffect(() => {
         const handleEsc = (e) => {
@@ -47,14 +58,31 @@ const ProcessedResultsModal = ({ images, onClose }) => {
                         flexShrink: 0,
                         backgroundColor: 'var(--bg-dark)'
                     }}>
-                        <h2 style={{ fontSize: '2rem', margin: 0 }}>Processed Results</h2>
-                        <button
-                            className="modal-close"
-                            onClick={onClose}
-                            style={{ position: 'static', transform: 'none', marginLeft: '1rem' }}
-                        >
-                            &times;
-                        </button>
+                        <div className="flex">
+                            <h2 style={{ fontSize: '2rem', margin: 0 }}>Processed Results</h2>
+                        </div>
+                        <div className="flex">
+                            {zipBlob && (
+                                <button
+                                    onClick={handleDownloadZip}
+                                    style={{
+                                        padding: '0.5rem 1rem',
+                                        fontSize: '0.9rem',
+                                        background: 'var(--secondary)',
+                                        marginRight: '1rem'
+                                    }}
+                                >
+                                    Download ZIP 📥
+                                </button>
+                            )}
+                            <button
+                                className="modal-close"
+                                onClick={onClose}
+                                style={{ position: 'static', transform: 'none' }}
+                            >
+                                &times;
+                            </button>
+                        </div>
                     </div>
 
                     <div style={{ flex: 1, overflowY: 'auto', padding: '2.5rem' }}>

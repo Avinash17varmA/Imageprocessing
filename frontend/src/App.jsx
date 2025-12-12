@@ -2,12 +2,14 @@ import { useState } from 'react';
 import UploadForm from "./components/UploadForm";
 import GetResults from "./components/GetResults";
 import ImageModal from './components/ImageModal';
+import SeasonalEffects from './components/SeasonalEffects';
 
 function App() {
   const [selectedImage, setSelectedImage] = useState(null);
 
   return (
     <div className="container">
+      <SeasonalEffects />
       <header className="mb-4 text-center">
         <h1>Image Processing Dashboard</h1>
         <p style={{ color: "var(--text-muted)" }}>Upload and process your images effortlessly</p>
