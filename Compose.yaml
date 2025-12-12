@@ -11,6 +11,12 @@ services:
       STREAMLIT_SERVER_PORT: "8501"
       STREAMLIT_SERVER_ENABLE_CORS: "false"
       STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION: "false"
+  redis:
+    image: redis:alpine
+    container_name: redis_cache
+    restart: always
+    ports:
+      - "6379:6379"
   mongo:
     image: mongo:latest      # Use latest MongoDB image
     container_name: mongo_db

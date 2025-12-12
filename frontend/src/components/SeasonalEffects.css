@@ -1,0 +1,92 @@
+.seasonal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    /* Behind everything */
+    overflow: hidden;
+}
+
+.particle {
+    position: absolute;
+    top: -10px;
+}
+
+/* Snow */
+.particle.snow {
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+    filter: blur(1px);
+    animation-name: fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+@keyframes fall {
+    to {
+        transform: translateY(105vh);
+    }
+}
+
+/* Rain */
+.particle.rain {
+    width: 2px;
+    height: 15px;
+    background: rgba(174, 194, 224, 0.6);
+    animation-name: rainfall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+@keyframes rainfall {
+    0% {
+        transform: translateY(-20px);
+    }
+
+    100% {
+        transform: translateY(105vh);
+    }
+}
+
+/* Summer Shine */
+.summer-container {
+    background: radial-gradient(circle at 90% 10%, rgba(255, 223, 0, 0.15) 0%, rgba(255, 255, 255, 0) 60%);
+}
+
+.sun-shine {
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255, 209, 0, 0.4) 0%, rgba(255, 255, 255, 0) 70%);
+    filter: blur(40px);
+    animation: pulse-shine 8s infinite alternate;
+}
+
+.light-ray {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+@keyframes pulse-shine {
+    0% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+
+    100% {
+        transform: scale(1.2);
+        opacity: 0.9;
+    }
+}
