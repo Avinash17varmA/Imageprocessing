@@ -48,43 +48,73 @@ def upload_image(request):
         cached_plots = cache.get(cache_key)
 
         plots = None
-        if cached_plots:
-            print("LOG: Valid cache entry found in Redis. Using it.")
+        # Define expected keys
+        expected_keys = {
+            "grayscale", "scatter", "histogram", "bar", "line", 
+            "edge_detection", "threshold", "blurred",
+            "inverted", "dilated", "eroded", "sharpened"
+        }
+        
+        if cached_plots and all(k in cached_plots for k in expected_keys):
+            print("LOG: Valid cache entry found in Redis with all expected plots. Using it.")
             plots = cached_plots
         else:
-            print("LOG: No cache entry in Redis.")
+            if cached_plots:
+                print("LOG: Cache entry found but missing some plots. Regenerating...")
+            else:
+                print("LOG: No cache entry in Redis.")
 
             # --- Save raw image if new (DB logic) ---
             # We use the filename from the upload if available
             name = uploaded_file.name if uploaded_file.name else "uploaded_image"
             print(f"LOG: Saving/Checking raw image: {name}")
-            raw_image_obj = save_image_if_new(pil_img, name=name)
-            print(f"LOG: Raw image object ID: {raw_image_obj.id}")
+            raw_image_obj, created = save_image_if_new(pil_img, name=name)
+            print(f"LOG: Raw image object ID: {raw_image_obj.id}, New: {created}")
+
+            if created:
+                print("LOG: New image uploaded. Invalidating 'all_raw_images_zip' cache.")
+                cache.delete("all_raw_images_zip")
             
             # --- Check DB if not in Cache ---
             print("LOG: Checking for existing processed images in DB")
             plots = get_processed_images_from_db(raw_image_obj)
 
+            if plots:
+                 # Check if DB has all keys
+                 if not all(k in plots for k in expected_keys):
+                     print("LOG: Existing DB record missing some plots. Regenerating all...")
+                     plots = None # Force regeneration below
+                 else:
+                     print("LOG: Found existing plots in DB with all keys. Using them.")
+
             if plots is None:
                 # generate new processed images
-                print("LOG: No existing plots found. Generating new plots...")
+                print("LOG: Generating new plots...")
                 plots = generate_plots_bytes(pil_img)
-                print("LOG: Plots generated. Saving to DB...")
+                print("LOG: Plots generated. Saving/Updating DB...")
 
+                # check if processed object exists
+                processed = ProcessedImages.objects(original_image=raw_image_obj).first()
+                if processed:
+                    print("LOG: Deleting old processed record to ensure clean state.")
+                    processed.delete()
+                
                 processed = ProcessedImages(
                     name="processed_" + (raw_image_obj.name or "image"),
                     original_image=raw_image_obj
                 )
-
+                
+                # Update all fields
                 for key, value in plots.items():
+                    # Since it's a fresh object, use put()
                     getattr(processed, key).put(
                         io.BytesIO(value),
                         content_type="image/png"
                     )
                 processed.save()
-                print("LOG: Processed images saved to DB")
+                print("LOG: Processed images saved/updated in DB")
             else:
-                print("LOG: Found existing plots in DB. Using them.")
+                pass # Already have valid plots from DB
 
             # --- Save to Redis ---
             print(f"LOG: Saving plots to Redis with key: {cache_key}")
@@ -109,6 +139,8 @@ def upload_image(request):
         )
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
 
 
