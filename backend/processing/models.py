@@ -20,6 +20,10 @@ class ProcessedImages(Document):
     edge_detection = FileField()
     threshold = FileField()
     blurred = FileField()
+    inverted = FileField()
+    dilated = FileField()
+    eroded = FileField()
+    sharpened = FileField()
     meta = {
         'collection': 'Processed_Images'
     }

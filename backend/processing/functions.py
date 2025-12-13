@@ -121,6 +121,26 @@ def generate_plots_bytes(pil_img):
     print("LOG: Generating Blurred Image")
     blurred_img = cv2.GaussianBlur(gray, (15, 15), 0)
 
+    # Inverted
+    print("LOG: Generating Inverted Image")
+    inverted_img = cv2.bitwise_not(gray)
+
+    # Morphological Operations
+    kernel = np.ones((5,5), np.uint8)
+    
+    print("LOG: Generating Dilated Image")
+    dilated_img = cv2.dilate(gray, kernel, iterations=1)
+
+    print("LOG: Generating Eroded Image")
+    eroded_img = cv2.erode(gray, kernel, iterations=1)
+
+    # Sharpening
+    print("LOG: Generating Sharpened Image")
+    sharpen_kernel = np.array([[0, -1, 0],
+                               [-1, 5, -1], 
+                               [0, -1, 0]])
+    sharpened_img = cv2.filter2D(gray, -1, sharpen_kernel)
+
     print("LOG: All plots generated")
     return {
         "grayscale": img_to_bytes(gray),
@@ -130,7 +150,11 @@ def generate_plots_bytes(pil_img):
         "line": fig_to_bytes(fig_line),
         "edge_detection": img_to_bytes(edges),
         "threshold": img_to_bytes(thresh),
-        "blurred": img_to_bytes(blurred_img)
+        "blurred": img_to_bytes(blurred_img),
+        "inverted": img_to_bytes(inverted_img),
+        "dilated": img_to_bytes(dilated_img),
+        "eroded": img_to_bytes(eroded_img),
+        "sharpened": img_to_bytes(sharpened_img)
     }
 
 def get_processed_images_from_db(raw_image_obj):
@@ -143,7 +167,11 @@ def get_processed_images_from_db(raw_image_obj):
         return None
 
     images_dict = {}
-    keys = ["grayscale", "scatter", "histogram", "bar", "line", "edge_detection", "threshold", "blurred"]
+    keys = [
+        "grayscale", "scatter", "histogram", "bar", "line", 
+        "edge_detection", "threshold", "blurred",
+        "inverted", "dilated", "eroded", "sharpened"
+    ]
     for key in keys:
         file_field = getattr(processed, key)
         if file_field:

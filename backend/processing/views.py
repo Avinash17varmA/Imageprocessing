@@ -49,7 +49,11 @@ def upload_image(request):
 
         plots = None
         # Define expected keys
-        expected_keys = {"grayscale", "scatter", "histogram", "bar", "line", "edge_detection", "threshold", "blurred"}
+        expected_keys = {
+            "grayscale", "scatter", "histogram", "bar", "line", 
+            "edge_detection", "threshold", "blurred",
+            "inverted", "dilated", "eroded", "sharpened"
+        }
         
         if cached_plots and all(k in cached_plots for k in expected_keys):
             print("LOG: Valid cache entry found in Redis with all expected plots. Using it.")
@@ -89,19 +93,21 @@ def upload_image(request):
                 plots = generate_plots_bytes(pil_img)
                 print("LOG: Plots generated. Saving/Updating DB...")
 
-                # check if processed object exists to update it, or create new
+                # check if processed object exists
                 processed = ProcessedImages.objects(original_image=raw_image_obj).first()
-                if not processed:
-                    processed = ProcessedImages(
-                        name="processed_" + (raw_image_obj.name or "image"),
-                        original_image=raw_image_obj
-                    )
+                if processed:
+                    print("LOG: Deleting old processed record to ensure clean state.")
+                    processed.delete()
+                
+                processed = ProcessedImages(
+                    name="processed_" + (raw_image_obj.name or "image"),
+                    original_image=raw_image_obj
+                )
                 
                 # Update all fields
                 for key, value in plots.items():
-                    # If field already has file, delete it first? MongoEngine replaces file usually.
-                    # better to just put new content.
-                    getattr(processed, key).replace(
+                    # Since it's a fresh object, use put()
+                    getattr(processed, key).put(
                         io.BytesIO(value),
                         content_type="image/png"
                     )
@@ -133,6 +139,8 @@ def upload_image(request):
         )
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
 
 
