@@ -8,7 +8,7 @@ import cv2
 import matplotlib.pyplot as plt
 from django.http import JsonResponse
 from .models import *
-from .functions import *
+from .functions import calculate_md5, save_image_if_new, get_processed_images_from_db, generate_plots_bytes
 
 @csrf_exempt
 def upload_image(request):

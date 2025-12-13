@@ -2,7 +2,11 @@ import io
 import hashlib
 import numpy as np
 import cv2
+# Set backend to Agg before importing pyplot to avoid GUI overhead
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 from PIL import Image
 from .models import *
 # ---------- Helper functions ----------
@@ -57,6 +61,8 @@ def generate_plots_bytes(pil_img):
         buf = io.BytesIO()
         fig.savefig(buf, format='PNG')
         buf.seek(0)
+        # Clear specific figure to save memory
+        fig.clf()
         plt.close(fig)
         return buf.getvalue()
 
@@ -67,17 +73,23 @@ def generate_plots_bytes(pil_img):
     # Scatter plot
     print("LOG: Generating Scatter plot")
     h, w = gray.shape
+    # Resize to speed up scatter plot (still keep it reasonable)
     small = cv2.resize(gray, (int(w * 0.5), int(h * 0.5)))
-    xs, ys, intensity = [], [], []
-    for y in range(small.shape[0]):
-        for x in range(small.shape[1]):
-            if small[y, x] != 255:
-                xs.append(x)
-                ys.append(y)
-                intensity.append(small[y, x])
-    fig_scatter, ax1 = plt.subplots()
+    
+    # OPTIMIZATION: Use NumPy vectorization instead of Python loops
+    # Find indices where pixel value is not 255 (white)
+    # np.where returns (row_indices, col_indices) -> (ys, xs)
+    ys, xs = np.where(small != 255)
+    
+    # Get intensities at those indices
+    intensity = small[ys, xs]
+    
+    # Create figure
+    fig_scatter = plt.figure() # Use figure direct constructor preferred but subplots is fine if closed
+    ax1 = fig_scatter.add_subplot(111)
+    # Scatter expects x, y. arrays are y, x (row, col)
     sc = ax1.scatter(xs, ys, c=intensity, cmap="gray", s=0.5)
-    plt.colorbar(sc, ax=ax1)
+    fig_scatter.colorbar(sc, ax=ax1)
 
     # Histogram (Standard Intensity Histogram)
     print("LOG: Generating Histogram")
