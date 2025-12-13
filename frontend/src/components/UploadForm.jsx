@@ -139,7 +139,7 @@ function UploadForm(props) {
               marginTop: "0.5rem",
               backgroundColor: "var(--bg-input)",
               border: "1px dashed var(--border)",
-              color: "var(--text-muted)"
+              color: "white"
             }}
           >
             Take a Photo 📸

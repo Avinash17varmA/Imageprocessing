@@ -17,6 +17,9 @@ class ProcessedImages(Document):
     histogram = FileField()
     bar = FileField()
     line = FileField()
+    edge_detection = FileField()
+    threshold = FileField()
+    blurred = FileField()
     meta = {
         'collection': 'Processed_Images'
     }

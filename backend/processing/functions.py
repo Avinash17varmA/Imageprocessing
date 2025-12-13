@@ -17,7 +17,7 @@ def save_image_if_new(pil_img, name="uploaded_image"):
     """
     Saves the image to MongoDB only if it does not already exist.
     Calculates MD5 based on the converted PNG bytes to ensure consistency.
-    Returns the RawImages object.
+    Returns (RawImages object, boolean created).
     """
     print("LOG: save_image_if_new called")
     img_bytes = io.BytesIO()
@@ -31,7 +31,7 @@ def save_image_if_new(pil_img, name="uploaded_image"):
     duplicate = RawImages.objects(md5=img_hash).first()
     if duplicate:
         print("LOG: Duplicate image found in DB.")
-        return duplicate
+        return duplicate, False
 
     # Ensure name ends with .png since we converted it
     if not name.lower().endswith('.png'):
@@ -42,7 +42,7 @@ def save_image_if_new(pil_img, name="uploaded_image"):
     rawimage = RawImages(name=name, md5=img_hash)
     rawimage.image.put(img_bytes, filename=name, content_type="image/png")
     rawimage.save()
-    return rawimage
+    return rawimage, True
 
 def generate_plots_bytes(pil_img):
     """Generates all plots and returns a dictionary of plot bytes"""
@@ -109,13 +109,28 @@ def generate_plots_bytes(pil_img):
     ly.plot(y_proj, color='black')
     ly.set_title('Y-Axis Projection')
 
+    # Edge Detection (Canny)
+    print("LOG: Generating Edge Detection")
+    edges = cv2.Canny(gray, 100, 200)
+
+    # Thresholding (Otsu)
+    print("LOG: Generating Thresholding")
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Blurred (Gaussian)
+    print("LOG: Generating Blurred Image")
+    blurred_img = cv2.GaussianBlur(gray, (15, 15), 0)
+
     print("LOG: All plots generated")
     return {
         "grayscale": img_to_bytes(gray),
         "scatter": fig_to_bytes(fig_scatter),
         "histogram": fig_to_bytes(fig_hist),
         "bar": fig_to_bytes(fig_bar),
-        "line": fig_to_bytes(fig_line)
+        "line": fig_to_bytes(fig_line),
+        "edge_detection": img_to_bytes(edges),
+        "threshold": img_to_bytes(thresh),
+        "blurred": img_to_bytes(blurred_img)
     }
 
 def get_processed_images_from_db(raw_image_obj):
@@ -128,7 +143,8 @@ def get_processed_images_from_db(raw_image_obj):
         return None
 
     images_dict = {}
-    for key in ["grayscale", "scatter", "histogram", "bar", "line"]:
+    keys = ["grayscale", "scatter", "histogram", "bar", "line", "edge_detection", "threshold", "blurred"]
+    for key in keys:
         file_field = getattr(processed, key)
         if file_field:
             images_dict[key] = file_field.read()  # read bytes from GridFS
